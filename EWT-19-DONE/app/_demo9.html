@@ -1,0 +1,416 @@
+<style>
+    :root {
+        display: grid;
+        grid: auto / auto 1fr;
+        gap: 10px;
+    }
+
+    #panel {
+        display: flex;
+    }
+
+    [type=color] {
+        width: 60px;
+    }
+
+    table {
+        margin-top: 10px;
+    }
+
+    td:nth-child(3) {
+        width: 100%;
+        text-align: right;
+    }
+
+    #map {
+        border: 1px solid #333;
+    }
+</style>
+
+<template>
+    <main>
+        <div>
+            <div id="panel">
+                <!-- TODO (15B): Lazy reading -->
+                <input type="color" v-model.lazy="color" list>
+                <button @click="removeAll">Remove All</button>
+            </div>
+
+            <table class="table">
+                <tr>
+                    <td><button @click="remove('circle')">X</button></td>
+                    <td>Circle</td>
+                    <td>{{ count('circle') }}</td>
+                </tr>
+                <tr>
+                    <td><button @click="remove('rectangle')">X</button></td>
+                    <td>Rectangle</td>
+                    <td>{{ count('rectangle') }}</td>
+                </tr>
+                <tr>
+                    <td><button @click="remove('polygon')">X</button></td>
+                    <td>Polygon</td>
+                    <td>{{ count('polygon') }}</td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td></td>
+                    <td>{{ shapes.length }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div id="map"></div>
+    </main>
+</template>
+
+<script>
+    app.component({
+        data: () => ({
+            shapes: [],
+            color: '#ff0000',
+        }),
+
+        watch: {
+            color() {
+                // TODO(15A): Firebase --> UPDATE (color)
+                const o = this.shapes.find(o => o.editable);
+                if (o && o.strokeColor != this.color) {
+                    console.log('color_update');
+                    SHAPES.doc(o.id).update({
+                        color: this.color,
+                    });
+                }
+            },
+        },
+
+        methods: {
+            // NOTE: addShape(id, data)
+            //       --> addCircle(id, data)
+            //       --> addRectangle(id, data)
+            //       --> addPolygon(id, data)
+            addShape(id, data) {
+                const { type } = data;
+                let o = null;
+                switch (type) {
+                    case 'circle'   : o = this.addCircle(id, data)   ; break;
+                    case 'rectangle': o = this.addRectangle(id, data); break;
+                    case 'polygon'  : o = this.addPolygon(id, data)  ; break;
+                }
+                
+                o.addListener('dblclick', e => {
+                    // TODO(6): Firebase --> DELETE
+                    SHAPES.doc(o.id).delete();
+                });                
+                
+                o.addListener('click', e => {
+                    // TODO(9): Make only this shape editable and draggable
+                    //          Update color input
+                    this.shapes.forEach(o => {
+                        o.setEditable(false);
+                        o.setDraggable(false);
+                    });
+
+                    o.setEditable(true);
+                    o.setDraggable(true);
+                    this.color = o.strokeColor;
+                });
+                
+                o.addListener('dragstart', e => {
+                    // TODO(14A): Set block to true
+                    o.block = true;
+                });
+
+                o.addListener('dragend', e => {
+                    // TODO(14B): Set block to false --> update
+                    o.block = false;
+                    o.update();
+                });
+
+                this.shapes.push(o);
+            },
+            addCircle(id, { center, radius, color, type }) {
+                const o = new gm.Circle({
+                    map,
+                    // TODO(5): Options --> center, radius, strokeColor, fillColor, id, type, block
+                    center,
+                    radius,
+                    strokeColor: color,
+                    fillColor: color,
+                    id, // Custom
+                    type, // Custom
+                    block: false, // Custom
+                });
+                
+                // TODO(11A): FIREBASE --> UPDATE (center, radius)
+                o.update = () => {
+                    if (o.block) return;
+
+                    console.log('circle_update');
+                    SHAPES.doc(o.id).update({
+                        center: o.getCenter().toJSON(),
+                        radius: o.getRadius(),
+                    });
+                };
+
+                // TODO(11B): Handle events --> center_changed, radius_changed
+                o.addListener('center_changed', o.update);
+                o.addListener('radius_changed', o.update);
+
+                // TODO(12): Modify options --> center, radius, strokeColor, fillColor
+                o.modify = data => {
+                    o.block = true;
+
+                    console.log('circle_modify');
+                    const { center, radius, color } = data;
+                    o.setOptions({
+                        center,
+                        radius,
+                        strokeColor: color,
+                        fillColor: color,
+                    });
+
+                    o.block = false;
+                };
+
+                return o;
+            },
+            addRectangle(id, { bounds, color, type }) {
+                const o = new gm.Rectangle({
+                    map,
+                    // TODO(17): Options --> bounds, strokeColor, fillColor, id, type, block
+                    bounds,
+                    strokeColor: color,
+                    fillColor: color,
+                    id, // Custom
+                    type, // Custom
+                    block: false, // Custom
+                });
+
+                // TODO(18A): FIREBASE --> UPDATE (bounds)
+                o.update = () => {
+                    if (o.block) return;
+
+                    console.log('rectangle_update');
+                    SHAPES.doc(o.id).update({
+                        bounds: o.getBounds().toJSON(),
+                    });
+                };
+
+                // TODO(18B): Handle events --> bounds_changed
+                o.addListener('bounds_changed', o.update);
+
+                // TODO(19): Modify options --> bounds, strokeColor, fillColor
+                o.modify = data => {
+                    o.block = true;
+
+                    console.log('rectangle_modify');
+                    const { bounds, color } = data;
+                    o.setOptions({
+                        bounds,
+                        strokeColor: color,
+                        fillColor: color,
+                    });
+
+                    o.block = false;
+                };
+
+                return o;
+            },
+            addPolygon(id, { path, color, type }) {
+                const o = new gm.Polygon({
+                    map,
+                    // TODO(21): Options --> path, strokeColor, fillColor, id, type, block
+                    path: gm.geometry.encoding.decodePath(path),
+                    strokeColor: color,
+                    fillColor: color,
+                    id, // Custom
+                    type, // Custom
+                    block: false, // Custom
+                });
+                
+                // TODO(22A): FIREBASE --> UPDATE (path)
+                o.update = e => {
+                    if (o.block) return;
+
+                    console.log('polygon_update');
+                    SHAPES.doc(o.id).update({
+                        path: gm.geometry.encoding.encodePath(o.getPath()),
+                    });
+                };
+
+                // TODO(22B): Handle events --> insert_at, set_at, remove at
+                o.getPath().addListener('insert_at', o.update);
+                o.getPath().addListener('remove_at', o.update);
+                o.getPath().addListener('set_at'   , o.update);
+                
+                // TODO(23): Remove vertex
+                o.addListener('contextmenu', e => {
+                    if (e.vertex == undefined) return;
+                    o.getPath().removeAt(e.vertex);
+                });
+
+                // TODO(24): Modify options --> path, strokeColor, fillColor
+                o.modify = data => {
+                    o.block = true;
+                    
+                    console.log('polygon_modify');
+                    const { path, color } = data;
+                    o.setOptions({
+                        strokeColor: color,
+                        fillColor: color,
+                    });
+
+                    const arr = gm.geometry.encoding.decodePath(path);
+                    o.getPath().clear();
+                    arr.forEach(p => o.getPath().push(p));
+
+                    o.block = false;
+                };
+
+                return o;
+            },
+            count(type) {
+                return this.shapes.filter(o => o.type == type).length;
+            },
+            removeAll() {
+                // TODO(8A): Firebase --> DELETE ALL
+                this.shapes
+                    .forEach(o => SHAPES.doc(o.id).delete());
+            },
+            remove(type) {
+                // TODO(8B): Firebase --> DELETE specific shape type
+                this.shapes
+                    .filter(o => o.type == type)
+                    .forEach(o => SHAPES.doc(o.id).delete());
+            },
+        },
+
+        created() {
+            this.$root.title = 'Demo 9 : Fire Shape';
+
+            // ================================================================
+            // Firebase
+            // ================================================================
+
+            // TODO(2A): Firebase (subscribe for changes) --> get unsubscribe() function
+            unsub = SHAPES?.onSnapshot(snap => {
+                snap.docChanges().forEach(change => {
+                    const { type, doc } = change;
+                    
+                    if (type == 'added') {
+                        // TODO(4): Add shape to map --> call addShape(id, data)
+                        this.addShape(doc.id, doc.data());
+                    }
+                    else if (type == 'removed') {
+                        // TODO(7): Remove shape from map and array
+                        const o = this.shapes.find(o => o.id == doc.id);
+                        Vue.toRaw(o).setMap(null);
+                        const i = this.shapes.indexOf(o);
+                        this.shapes.splice(i, 1);
+                    }
+                    else if (type == 'modified') {
+                        // TODO(13): Modify shape options --> call o.modify(data)
+                        const o = this.shapes.find(o => o.id == doc.id);
+                        o.modify(doc.data());
+                    }
+                });
+            });
+
+            // ================================================================
+        },
+
+        mounted() {
+            // ================================================================
+            // Google Maps
+            // ================================================================
+
+            map = new gm.Map($('#map')[0], {
+                center,
+                zoom: 15,
+                disableDefaultUI: true,
+                disableDoubleClickZoom: true,
+                clickableIcons: false,
+            });
+
+            map.addListener('click', e => {
+                // TODO(10): Make all shapes none editable and draggble
+                //           Reset color input
+                this.shapes.forEach(o => {
+                    o.setEditable(false);
+                    o.setDraggable(false);
+                });
+                this.color = '#ff0000';
+            });
+
+            // --------------------------------------------
+            // Drawing Manager Events
+            // --------------------------------------------
+
+            const mgr = new gm.drawing.DrawingManager({
+                map,
+                drawingControlOptions: {
+                    drawingModes: ['circle', 'rectangle', 'polygon'],
+                },
+            });
+
+            mgr.addListener('circlecomplete', o => {
+                // TODO(3A): Remove draft
+                o.setMap(null);
+
+                // TODO(3B): Firebase --> INSERT (center, radius, color, type)
+                SHAPES.doc().set({
+                    center: o.getCenter().toJSON(),
+                    radius: o.getRadius(),
+                    color: this.color,
+                    type: 'circle',
+                });
+            });
+
+            mgr.addListener('rectanglecomplete', o => {
+                // TODO(16A): Remove draft
+                o.setMap(null);
+
+                // TODO(16B): Firebase --> INSERT (bounds, color, type)
+                SHAPES.doc().set({
+                    bounds: o.getBounds().toJSON(),
+                    color: this.color,
+                    type: 'rectangle',
+                });
+            });
+
+            mgr.addListener('polygoncomplete', o => {
+                // TODO(20A): Remove draft
+                o.setMap(null);
+                
+                // TODO(20B): Firebase --> INSERT (path, color, type)
+                SHAPES.doc().set({
+                    path: gm.geometry.encoding.encodePath(o.getPath()),
+                    color: this.color,
+                    type: 'polygon',
+                });
+            });
+            // --------------------------------------------
+
+            // ================================================================
+
+            $(document).keydown(e => {
+                switch (e.key) {
+                    case 'Escape':
+                    case '0': mgr.setDrawingMode(null)       ; break;
+                    case '1': mgr.setDrawingMode('circle')   ; break;
+                    case '2': mgr.setDrawingMode('rectangle'); break;
+                    case '3': mgr.setDrawingMode('polygon')  ; break;
+                }
+            });
+        },
+
+        unmounted() {
+            map = null;
+            $(document).off('keydown');
+
+            // TODO(2B): Unsubscribe snapshot listener
+            unsub?.();
+        },
+    });
+</script>

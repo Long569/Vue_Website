@@ -1,0 +1,165 @@
+<style>
+    :root {
+        display: grid;
+        grid: auto / 200px 1fr;
+        gap: 10px;
+    }
+
+    #map {
+        border: 1px solid #333;
+    }
+</style>
+<template>
+    <main>
+        <div id="panel">
+            <div>
+                <button @click="load">Load</button>
+                <button @click="save">Save</button>
+            </div>
+            <hr>
+            <div>
+                Count = {{ count }} point(s)<br>
+                Perimeter = {{ perimeter.toFixed(3) }} m<br>
+                Area = {{ area.toFixed(3) }} m2
+            </div>
+            <hr>
+            <div style="word-break: break-all">
+                {{ encoded }}
+            </div>
+        </div>
+        <div id="map"></div>
+    </main>
+</template>
+
+<script>
+    app.component({
+        data: () => ({
+            count: 0,
+            perimeter: 0,
+            area: 0,
+            encoded: '',
+            poly: null,
+        }),
+
+        methods: {
+            setPolygon(path) {
+                // TODO(3): Remove previous polygon (if any)
+                if (this.poly) {
+                    Vue.toRaw(this.poly).setMap(null);
+                }
+
+                this.poly = new gm.Polygon({
+                    map,
+                    path,
+                    strokeColor: 'orange',
+                    fillColor: 'orange',
+                });
+
+                this.poly.addListener('click', e => {
+                    // TODO(4): Make polygon draggable and editable
+                    this.poly.setDraggable(true);
+                    this.poly.setEditable(true);
+                });
+
+                this.poly.addListener('contextmenu', e => {
+                    // TODO(6): Delete a vertex from the polygon
+                    if (e.vertex == undefined) return;
+                    this.poly.getPath().removeAt(e.vertex);
+                });
+
+                // TODO(7): Call update() function
+                this.update();
+
+                // TODO(9): Set path events (insert_at, set_at, remove_at) --> call update() function
+                this.poly.getPath().addListener('insert_at', this.update);
+                this.poly.getPath().addListener('remove_at', this.update);
+                this.poly.getPath().addListener('set_at'   , this.update);
+            },
+            update() {
+                if (this.poly) {
+                    // TODO(8): If there is a polygon...
+                    //          Obtain an array of points of the polygon
+                    //          Update count, perimeter, area and encoded path of the polygon
+                    const arr = this.poly.getPath().getArray();
+
+                    this.count     = arr.length;
+                    this.perimeter = gm.geometry.spherical.computeLength([...arr, arr[0]]);
+                    this.area      = gm.geometry.spherical.computeArea(arr);
+                    this.encoded   = gm.geometry.encoding.encodePath(arr);
+                }
+            },
+            save() {
+                if (this.poly) {
+                    // TODO(10): If there is a polygon...
+                    //           Save encoded path to firebase
+                    DB.doc('map/$').set(
+                        { polygon: this.encoded },
+                        { merge: true }
+                    ).then(() => alert('Saved'));
+                }
+            },
+            load() {
+                // TODO(11): Load encoded path from firebase
+                DB.doc('map/$').get().then(doc => {
+                    const { polygon } = doc.data() ?? {};
+                    if (polygon) {
+                        const path = gm.geometry.encoding.decodePath(polygon);
+                        this.setPolygon(path);
+                        alert('Loaded');
+                    }
+                    else {
+                        alert('No data');
+                    }
+                });
+            },
+        },
+
+        created() {
+            this.$root.title = 'Demo 10 : Fire Polygon';
+        },
+
+        mounted() {
+            // ================================================================
+            // Google Maps
+            // ================================================================
+
+            map = new gm.Map($('#map')[0], {
+                center,
+                zoom: 15,
+                disableDefaultUI: true,
+                disableDoubleClickZoom: true,
+                clickableIcons: false,
+            });
+
+            const mgr = new gm.drawing.DrawingManager({
+                map,
+                drawingControlOptions: {
+                    drawingModes: ['polygon'],
+                },
+            });
+
+            mgr.addListener('polygoncomplete', o => {
+                // TODO(1): Remove draft
+                o.setMap(null);
+                
+                // TODO(2): Create a polygon based on the overlay --> call setPolygon(path)
+                this.setPolygon(o.getPath());
+            });
+
+            map.addListener('click', e => {
+                if (this.poly) {
+                    // TODO(5): If there is a polygon...
+                    //          Make the polygon none draggable and none editable
+                    this.poly.setDraggable(false);
+                    this.poly.setEditable(false);
+                }
+            });
+
+            // ================================================================
+        },
+
+        unmounted() {
+            map = null;
+        },
+    });
+</script>

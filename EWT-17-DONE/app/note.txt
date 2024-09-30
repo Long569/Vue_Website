@@ -1,0 +1,86 @@
+﻿====================================
+🗺️ EWT-17 Google Maps JS API (B) 🗺️
+====================================
+
+Data files = EWT-17.zip
+
+--------------------------
+(B) Demo 3 - Fire Marker
+    Demo 4 - Polyline
+    Demo 5 - Fire Polyline
+--------------------------
+
+
+--------------------
+Demo 3 - Fire Marker
+--------------------
+- List of markers --> Cloud Firestore
+- CRUD = id, position (lat, lng), text and photo
+
+
+-----------------
+Demo 4 - Polyline
+-----------------
+- Polyline (2 points)
+- Geometry calculations
+- JS --> ?key=&libraries=geometry
+
+
+--------------------------
+(A) google.maps.SymbolPath
+--------------------------
+https://developers.google.com/maps/documentation/javascript/symbols
+
+- BACKWARD_CLOSED_ARROW
+- BACKWARD_OPEN_ARROW
+- CIRCLE
+- FORWARD_CLOSED_ARROW
+- FORWARD_OPEN_ARROW
+- Custom SVG path string
+
+
+------------------------
+(B) google.maps.geometry
+------------------------
+https://developers.google.com/maps/documentation/javascript/geometry
+https://developers.google.com/maps/documentation/javascript/reference/geometry
+
+- spherical
+  - computeArea(path) : number
+  - computeDistanceBetween(from, to) : number
+  - computeHeading(from, to) : number
+  - computeLength(path) : number
+  - computeOffset(from, distance, heading) : LatLng
+  - computeOffsetOrigin(to, distance, heading) : LatLng
+  - computeSignedArea(loop) : number
+  - interpolate(from, to, fraction) : LatLng
+- encoding
+  - decodePath(encodedPath) : Array<LatLng>
+  - encodePath(path) : string
+- poly
+  - containsLocation(point, polygon) : boolean
+  - isLocationOnEdge(point, poly) : boolean
+
+
+----------------------
+Demo 5 - Fire Polyline
+----------------------
+- Polyline (multiple points)
+- Geometry calculations
+- Editable --> add or remove points
+- Encoding and decoding = path <--> string
+- Save to Cloud Firestore
+- Load from Cloud Firestore
+
+Internet-found unrestricted keys:
+---------------------------------
+AIzaSyAIzmXkCIBFqi1EjiC3BFHEihb5aYj3RmY
+AIzaSyAwiV5R3XMsrVZKI6NuD7vY4BRqUt9yQQA
+AIzaSyBa2ts8udooyb7CZJGT4BrBj8b4XkoclDU
+AIzaSyBS68AJSWAKGU0NXLFdfmtGKIbeExpUTUI
+AIzaSyBv_zaAzq9cGtg_U3_ezIEqJOmwGH-GyjM
+AIzaSyBwaHyIsDZrPQVS2OTSks-s4sAsnvLu8tM
+AIzaSyCBdwinhBxfD7cqHUCw9ja3vCwrUoSFsro
+AIzaSyCc4WNl0rXPzlg1g7A2ZjimnYLBS4s6qhA
+AIzaSyCT1MkhTlOJjKg1NLqb0yyD_0o3Q6_-dr8
+AIzaSyDz2uoI-By20D_wuU0fPHtQVXl_W1XhxN8

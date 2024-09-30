@@ -1,0 +1,387 @@
+<style>
+    :root {
+        display: grid;
+        grid: 'panel chat' 1fr
+              'panel form' auto
+              / 200px auto;
+        gap: 5px;
+        overflow: auto;
+    }
+
+    #panel {
+        grid-area: panel;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    #panel > div {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    #chat {
+        grid-area: chat;
+        border: 1px solid #666;
+        display: flex;
+        flex-direction: column-reverse;
+        overflow-y: scroll;
+        padding: 5px;
+    }
+
+    #chat > section {
+        flex: 1;
+    }
+
+    #chat > div {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .message {
+        display: flex;
+        gap: 5px;
+    }
+
+    .message > div {
+        border: 1px solid #666;
+        border-radius: 5px;
+        padding: 5px;
+        min-width: 70px;
+        max-width: 500px;
+
+        background: #ccf;
+    }
+
+    .me {
+        justify-content: right;
+    }
+
+    .me > div {
+        background: #cfc;
+    }
+
+    .me .photo,
+    .me small {
+        display: none;
+    }
+
+    time,
+    small {
+        display: block;
+        text-align: right;
+        font-size: small;
+        color: #666;
+    }
+
+    #form {
+        grid-area: form;
+        display: flex;
+    }
+
+    #text {
+        flex: 1;
+        padding: 5px;
+    }
+
+    .photo {
+        width: 30px;
+        height: 30px;
+        border: 1px solid #666;
+        border-radius: 50%;
+    }
+    
+    .image {
+        max-width: 200px;
+        max-height: 200px;
+        border: 1px solid #666;
+        display: block;
+        cursor: pointer;
+    }
+
+    .image:fullscreen {
+        object-fit: scale-down;
+        border: none !important;
+    }
+</style>
+
+<template>
+    <main>
+        <!-- Panel ------------------------------------------------------------------------------->
+        <div id="panel">
+            <template v-for="u of users">
+                <!-- TODO(9): Show online users -->
+                <div v-if="online[u.uid]">
+                    <img class="photo" :src="u.photoURL">
+                    <span>{{ u.displayName }}</span>
+                </div>
+            </template>
+        </div>
+
+        <!-- Chat -------------------------------------------------------------------------------->
+        <div id="chat">
+            <section></section>
+            <div>
+                <!-- TODO(17): Align message left or right -->
+                <div class="message" v-for="m of messages" :class="{ me: m.uid == user.uid }">
+                    <!-- Photo -->
+                    <img class="photo"
+                         :src="getPhotoURL(m.uid)"
+                         :title="getDisplayName(m.uid)">
+                    
+                    <!-- Message -->
+                    <div>
+                        <small>{{ getDisplayName(m.uid) }}</small>
+
+                        <!-- TODO(16): Text -->
+                        <template v-if="m.type == 'text'">
+                            <div v-html="format(m.text)"></div>
+                        </template>
+                        
+                        <!-- TODO(22): Image -->
+                        <template v-if="m.type == 'image'">
+                            <img class="image" @click="fullscreen" :src="m.url">
+                        </template>
+
+                        <!-- TODO(24): File -->
+                        <template v-if="m.type == 'file'">
+                            <a :href="m.url" download>{{ m.filename }}</a>
+                        </template>
+
+                        <!-- TODO(18): Timestamp -->
+                        <time>{{ m.timestamp?.toDate().toLocaleTimeString() ??  '...' }}</time>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form -------------------------------------------------------------------------------->
+        <form id="form" autocomplete="off">
+            <input id="text" v-model.trim="text" v-focus>
+            <button @click.prevent="send" :disabled="!text">Send</button>
+
+            <button type="button" @click="$refs.image.click()">Image</button>
+            <input type="file" multiple hidden accept="image/*" ref="image" @change="imageChange">
+
+            <button type="button" @click="$refs.file.click()">File</button>
+            <input type="file" multiple hidden ref="file" @change="fileChange">
+        </form>
+    </main>
+</template>
+
+<script>
+    let unsubUsers = null;
+    let unsubMessages = null;
+    let userRef = null;
+    let statusRef = null;
+    let onlineRef = null;
+
+    app.component({
+        data: () => ({ 
+            user: null,
+            users: [],
+            online: {},
+            text: '',
+            messages: [],
+        }),
+
+        methods: {
+            fullscreen(e) {
+                document.fullscreenElement ?
+                    document.exitFullscreen() :
+                    e.target.requestFullscreen();
+            },
+            getPhotoURL(uid) {
+                // TODO(10): Get user's photoURL
+                return this.users.find(u => u.uid == uid)?.photoURL;
+            },
+            getDisplayName(uid) {
+                // TODO(11): Get user's displayName
+                return this.users.find(u => u.uid == uid)?.displayName;
+            },
+            send() {
+                if (this.text) {
+                    // TODO(12): Send text (type, text, uid, timestamp)
+                    MESSAGES.doc().set({
+                        type: 'text',
+                        text: this.text,
+                        uid: this.user.uid,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    });
+                }
+                this.text = '';
+            },
+            format(text) {
+                // TODO(13): Format text (if any)
+                text = $('<div>').text(text).html();
+                return text;
+            },
+            imageChange(e) {
+                const files = e.target.files;
+
+                for (const f of files) {
+                    // TODO(21): Send image (type, url, uid, timestamp)
+                    fit(f, 1000, 1000, 'blob', 'image/webp')
+                        .then(blob => {
+                            const doc = MESSAGES.doc();
+
+                            STORAGE
+                                .ref('files')
+                                .child(doc.id + '.webp')
+                                .put(blob)
+                                .then(snap => snap.ref.getDownloadURL())
+                                .then(url => {
+                                    doc.set({
+                                        type: 'image',
+                                        url,
+                                        uid: this.user.uid,
+                                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                                    });
+                                });
+                        });
+                }
+
+                e.target.value = '';
+            },
+            fileChange(e) {
+                const files = e.target.files;
+                
+                for (const f of files) {
+                    // TODO(23): Send file (type, url, filename, uid, timestamp)
+                    const doc = MESSAGES.doc();
+                    const ext = f.name.split('.').pop();
+                    const metadata = {
+                        contentDisposition: `attachment; filename="${f.name}"`,
+                    };
+
+                    STORAGE
+                        .ref('files')
+                        .child(doc.id + '.' + ext)
+                        .put(f, metadata)
+                        .then(snap => snap.ref.getDownloadURL())
+                        .then(url => {
+                            doc.set({
+                                type: 'file',
+                                url,
+                                filename: f.name,
+                                uid: this.user.uid,
+                                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                            });
+                        });
+                }
+
+                e.target.value = '';
+            },
+        },
+     
+        async created() {
+            // TODO(6): Wait for authentication state
+            function getUser() {
+                return new Promise(resolve => {
+                    const unsub = AUTH.onAuthStateChanged(user => {
+                        unsub();
+                        resolve(user);
+                    });
+                });
+            }
+
+            this.user = await getUser();
+
+            if (!this.user) {
+                this.$router.push('/sign-in');
+                return;
+            }
+            
+            document.title = 'Firebase Chat : Protected';
+
+            // TODO(7): Firestore --> Handle users
+            unsubUsers = USERS
+                .orderBy('displayName')
+                .onSnapshot(snap => {
+                    this.users = [];
+                    snap.forEach(doc => {
+                        this.users.push({ uid: doc.id, ...doc.data() });
+                    });
+                });
+
+            // TODO(8): Realtime DB --> Handle online status
+            const db  = firebase.database();
+            userRef   = db.ref(this.user.uid);
+            statusRef = db.ref('.info/connected');
+            onlineRef = db.ref();
+
+            statusRef.on('value', snap => {
+                userRef.onDisconnect().remove();
+                userRef.set(true);
+            });
+
+            onlineRef.on('value', snap => {
+                this.online = snap.val();
+            });
+
+            // TODO(14): Firestore --> Handle messages
+            unsubMessages = MESSAGES
+                .orderBy('timestamp')
+                .limitToLast(10)
+                .onSnapshot(snap => {
+                    snap.docChanges().forEach(change => {
+                        const { type, doc, oldIndex, newIndex } = change;
+
+                        if (type == 'added') {
+                            console.log('added', oldIndex, newIndex);
+                            
+                            // TODO(15): Push message
+                            this.messages.push({ id: doc.id, ...doc.data() });
+                        }
+                        if (type == 'modified') {
+                            console.log('modified', oldIndex, newIndex);
+                            
+                            // TODO(19): Update timestamp
+                            const { timestamp } = doc.data();
+                            const m = this.messages.find(m => m.id == doc.id);
+                            if (m) {
+                                m.timestamp = timestamp;
+                            }
+                        }
+                        if (type == 'removed') {
+                            console.log('removed', oldIndex, newIndex);
+                            
+                            // TODO(20): Delete old messages
+                            const { timestamp } = doc.data();
+
+                            MESSAGES
+                                .where('timestamp', '<=', timestamp)
+                                .get()
+                                .then(snap => {
+                                    snap.forEach(doc => {
+                                        const url = doc.data().url;
+                                        if (url) {
+                                            STORAGE.refFromURL(url).delete().catch(e => 0);
+                                        }
+                                        doc.ref.delete();
+                                    });
+                                });
+                        }
+                    })
+                });
+        },
+
+        mounted() {
+            
+        },
+
+        unmounted() {
+            // Firestore
+            unsubUsers?.();
+            unsubMessages?.();
+
+            // Realtime DB
+            userRef?.remove();
+            userRef?.off();
+            statusRef?.off();
+            onlineRef?.off();
+        },
+    });
+</script>
