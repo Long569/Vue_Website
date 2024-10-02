@@ -23,15 +23,15 @@ header {
     padding: 10px 20px;
     background: #ccc;
     display: flex;
-    gap: 5px;
     align-items: center;
+    justify-content: space-between; /* This spaces the h1 and user info apart */
 }
 
 header h1 {
     margin: 0;
     background: url(../image/favicon.png) no-repeat left center / 32px 32px;
     padding-left: 40px;
-    flex: 1 1 auto;
+    flex: 1 1 auto; /* Allows the title to take up available space */
 }
 
 header a {
@@ -40,16 +40,26 @@ header a {
 }
 
 header div {
+    display: flex;
+    align-items: center; /* Align text and image on the same line */
+    gap: 10px; /* Space between the user info and the image */
     text-align: right;
+}
+
+header div span {
+    display: block;
+    font-size: 14px; /* Adjust font size if needed */
 }
 
 header img {
     border: 1px solid #333;
     background: #999;
-    border-radius: 5px;
-    width: 36px;
-    height: 36px;
+    border-radius: 50%; /* Makes the image circular */
+    width: 50px;
+    height: 50px;
+    object-fit: cover; /* Ensures image fits nicely within the circle */
 }
+
 
 nav {
     padding: 0 10px;

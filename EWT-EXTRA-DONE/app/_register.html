@@ -2,38 +2,19 @@
     <main>
         <h1>Register</h1>
 
-        <form class="form" 
-              @submit.prevent="submit"
-              @input="$event.target.setCustomValidity('')">
+        <form class="form" @submit.prevent="submit" @input="$event.target.setCustomValidity('')">
 
             <label>Email</label>
-            <input v-model.trim="email"
-                   type="email"
-                   required
-                   maxlength="100"
-                   ref="email"
-                   v-focus>
+            <input v-model.trim="email" type="email" required maxlength="100" ref="email" v-focus>
 
             <label>Password</label>
-            <input v-model.trim="password"
-                   type="password"
-                   required
-                   maxlength="100"
-                   ref="password">
+            <input v-model.trim="password" type="password" required maxlength="100" ref="password">
 
             <label>Name</label>
-            <input v-model.trim="name"
-                   type="text"
-                   required
-                   maxlength="100">
+            <input v-model.trim="name" type="text" required maxlength="100">
 
             <label>Photo</label>
-            <input type="file" 
-                   id="file" 
-                   accept="image/*"
-                   required 
-                   @change="change"
-                   ref="file">
+            <input type="file" id="file" accept="image/*" required @change="change" ref="file">
 
             <br>
             <label for="file">
@@ -51,7 +32,7 @@
 
 <script>
     app.component({
-        data: () => ({ 
+        data: () => ({
             email: '',
             password: '',
             name: '',
@@ -93,40 +74,66 @@
             },
             submit() {
                 this.$root.block();
-                
+
                 AUTH
                     .createUserWithEmailAndPassword(this.email, this.password)
                     .then(credential => {
+                        const user = credential.user;
 
-                        const user = this.$root.user;
+                        // Set default role as member
+                        const userProfile = {
+                            displayName: this.name,
+                            role: 'member',  // Default role
+                        };
 
+                        // Update the user's display name
                         user.updateProfile({ displayName: this.name });
 
-                        STORAGE
-                            .ref('photos')
-                            .child(user.uid + '.webp')
-                            .put(this.photo)
-                            .then(snap => snap.ref.getDownloadURL())
-                            .then(url => user.updateProfile({ photoURL: url }))
-                            .then(_ => {
-                                // TODO(2): Set displayName and photoURL
-                                USERS.doc(user.uid).set({
-                                    displayName: this.name,
-                                    photoURL: user.photoURL,
+                        // Upload photo if provided
+                        if (this.photo) {
+                            STORAGE
+                                .ref('photos')
+                                .child(user.uid + '.webp')
+                                .put(this.photo)
+                                .then(snap => snap.ref.getDownloadURL())
+                                .then(url => {
+                                    userProfile.photoURL = url;  // Add the photoURL to the profile object
+                                    return user.updateProfile({ photoURL: url });
+                                })
+                                .then(() => {
+                                    // After the photo URL is uploaded and profile is updated, store in Firestore
+                                    return USERS.doc(user.uid).set(userProfile);
+                                })
+                                .then(() => {
+                                    // Sign out the user after the registration process
+                                    return AUTH.signOut();
+                                })
+                                .then(() => {
+                                    this.$root.unblock();
+                                    alert('Registration successful! Please sign in.');
+                                    this.$router.push('/sign-in');  // Redirect to the sign-in page
                                 });
-                            });
-
-                        this.$root.unblock();
-                        this.$router.push('/');
-
+                        } else {
+                            // If no photo is uploaded, directly set displayName and role in Firestore
+                            USERS.doc(user.uid).set(userProfile)
+                                .then(() => {
+                                    // Sign out the user after the registration process
+                                    return AUTH.signOut();
+                                })
+                                .then(() => {
+                                    this.$root.unblock();
+                                    alert('Registration successful! Please sign in.');
+                                    this.$router.push('/home');  // Redirect to the sign-in page
+                                });
+                        }
                     })
                     .catch(err => {
-
                         this.$root.unblock();
-                        handleError(err, this.$refs.email, this.$refs.password);
-
+                        alert(err.message);
                     });
             },
+
+
         },
 
         created() {

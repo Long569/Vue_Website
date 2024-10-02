@@ -11,35 +11,47 @@
     <div id="app" v-cloak>
         <header>
             <h1><a href="/">Firebase Chat</a></h1>
+            
+            <!-- Display user information when authenticated -->
             <div v-if="user">
-                {{ user.displayName }}<br>
-                {{ user.email }}<br>
+                <div>
+                    {{ user.displayName }} ({{ userRole }})<br>
+                    {{ user.email }}<br>
+                </div>
+                
+                <!-- Display user's profile photo or a default image -->
+                <img :src="user.photoURL || 'image/photo.png'" alt="User Photo" class="profile-photo">
             </div>
-            <img :src="user.photoURL || 'image/photo.png'" v-if="user">
         </header>
 
+        <!-- Navigation with role-based links -->
         <nav>
             <a href="#/home">Home</a>
-            <template v-if="user">
+
+            <!-- Links available for authenticated users (both member and admin) -->
+            <template v-if="user && (userRole === 'member' || userRole === 'admin')">
                 <a href="#/chat">Chat</a>
-            </template>
-            <div></div>
-            <template v-if="user">
                 <a href="#/sign-in?page=/update-password">Update Password</a>
                 <a href="#/update-profile">Update Profile</a>
                 <a href="#/sign-in?page=/delete-account">Delete Account</a>
+            </template>
+
+            <!-- Logout option for authenticated users -->
+            <template v-if="user">
                 <a href="#" @click.prevent="signOut">Sign Out</a>
             </template>
+
+            <!-- Show Register and Reset Password links when not signed in -->
             <template v-else>
                 <a href="#/register">Register</a>
                 <a href="#/reset-password">Reset Password</a>
-                <a href="#/sign-in">Sign In</a>
             </template>
         </nav>
 
+        <!-- Main content area for routing -->
         <router-view v-slot="{ Component }">
             <transition name="slide" mode="out-in" appear>
-                <component :is="Component">
+                <component :is="Component"></component>
             </transition>
         </router-view>
 
@@ -57,43 +69,42 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vue-router/4.4.4/vue-router.global.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.slim.min.js"></script>
     <script src="js/app.js"></script>
-    <script>
-        // Firebase -----------------------------------------------------------
 
-        // TODO(1): Setup firebase
+    <script>
+        // Firebase initialization
         firebase.initializeApp({
-            apiKey: 'AIzaSyDnZvO-zeJfTzd_8zzMjF_HgaN_axf00f8',
-            storageBucket: 'gs://liaw-202405.appspot.com',
-            projectId: 'liaw-202405',
-            databaseURL: 'https://liaw-202405-default-rtdb.firebaseio.com',
+            apiKey: 'AIzaSyAtX_TmO7nHwWpAAGIQTeoam_P1dhjSMRs',
+            storageBucket: 'gs://goh-6666.appspot.com',
+            projectId: 'goh-6666',
+            databaseURL: 'https://goh-6666-default-rtdb.asia-southeast1.firebasedatabase.app',
         });
 
         const AUTH = firebase.auth();
         const STORAGE = firebase.storage();
-        // [users] + [messages] collections
         const USERS = firebase.firestore().collection('users');
         const MESSAGES = firebase.firestore().collection('messages');
 
-        // Vue router ---------------------------------------------------------
+        // Vue Router setup
         const router = VueRouter.createRouter({
             history: VueRouter.createWebHashHistory(),
             routes: [
-                { path: '/home'           , component: load('home') },
-                { path: '/chat'           , component: load('chat') },
-                { path: '/register'       , component: load('register') },
-                { path: '/reset-password' , component: load('reset-password') },
-                { path: '/sign-in'        , component: load('sign-in') },
+                { path: '/home', component: load('home') },
+                { path: '/chat', component: load('chat') },
+                { path: '/register', component: load('register') },
+                { path: '/reset-password', component: load('reset-password') },
+                { path: '/sign-in', component: load('sign-in') },
                 { path: '/update-password', component: load('update-password') },
-                { path: '/update-profile' , component: load('update-profile') },
-                { path: '/delete-account' , component: load('delete-account') },
-                { path: '/:all(.*)'       , redirect: '/home' },
+                { path: '/update-profile', component: load('update-profile') },
+                { path: '/delete-account', component: load('delete-account') },
+                { path: '/:all(.*)', redirect: '/home' },
             ],
         });
 
-        // Vue root component -------------------------------------------------
+        // Vue root component
         const app = Vue.createApp({
             data: () => ({
                 user: null,
+                userRole: '',  // Store the role of the authenticated user
             }),
 
             methods: {
@@ -110,18 +121,38 @@
             },
 
             created() {
-                AUTH.onAuthStateChanged(user => this.user = user);
+                // Firebase authentication state listener
+                AUTH.onAuthStateChanged(async (user) => {
+                    this.user = user;
+
+                    if (user) {
+                        // Fetch the user's role and photoURL from Firestore
+                        const userDoc = await USERS.doc(user.uid).get();
+                        if (userDoc.exists) {
+                            const userData = userDoc.data();
+                            this.userRole = userData.role || 'member';  // Default to 'member'
+                            
+                            // Update user profile in the Vue state, including photoURL
+                            this.user.photoURL = userData.photoURL || 'image/photo.png';
+                        } else {
+                            this.userRole = 'member';  // Default role if no role found
+                        }
+                    } else {
+                        this.userRole = '';  // Reset the role if the user logs out
+                    }
+                });
             },
         });
 
+        // Auto-focus directive for inputs
         app.directive('focus', {
             mounted(el) { 
                 el.focus(); 
             },
         });
 
+        // Mount the app
         app.use(router);
-        
         const root = app.mount('#app');
     </script>
 </body>

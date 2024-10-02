@@ -1,48 +1,98 @@
 <template>
     <main>
         <h1>Home</h1>
-        <table class="table">
-            <caption>Default User Accounts</caption>
-            <tr>
-                <th>Email</th>
-                <th>Password</th>
-            </tr>
-            <tr>
-                <td>1@gmail.com</td>
-                <td>123456</td>
-            </tr>
-            <tr>
-                <td>2@gmail.com</td>
-                <td>123456</td>
-            </tr>
-            <tr>
-                <td>3@gmail.com</td>
-                <td>123456</td>
-            </tr>
-            <tr>
-                <td>4@gmail.com</td>
-                <td>123456</td>
-            </tr>
-            <tr>
-                <td>5@gmail.com</td>
-                <td>123456</td>
-            </tr>
-            <tr>
-                <td>6@gmail.com</td>
-                <td>123456</td>
-            </tr>
-        </table>
+
+        <!-- Redirect to sign-in if not authenticated -->
+        <form v-if="!user" class="form" @submit.prevent="submit">
+            <label>Email</label>
+            <input v-model.trim="email"
+                   type="email"
+                   required
+                   maxlength="100"
+                   ref="email"
+                   v-focus>
+
+            <label>Password</label>
+            <input v-model.trim="password"
+                   type="password"
+                   required
+                   maxlength="100"
+                   ref="password">
+
+            <section>
+                <button>Submit</button>
+            </section>
+        </form>
+
+        <!-- If authenticated, show role-based redirect -->
+        <div v-else>
+            <div v-if="userRole == 'admin'">
+                <p>Welcome Admin! You can now edit the game.</p>
+                <button @click="enterEditMode">Edit Mode</button>
+            </div>
+
+            <div v-else-if="userRole == 'member'">
+                <p>Welcome Member! Join the game or chat.</p>
+                <button @click="$router.push('/chat')">Join Chat</button>
+                <button @click="joinGame">Join Game</button>
+            </div>
+        </div>
     </main>
 </template>
 
 <script>
     app.component({
-        data: () => ({
-            
+        data: () => ({ 
+            email: '',
+            password: '',
+            userRole: '',  // Store user role (admin/member)
         }),
+
+        computed: {
+            user() {
+                return this.$root.user;
+            },
+        },
+
+        methods: {
+            // Sign-in method (handles admin/member authentication)
+            submit() {
+                this.$root.block();
+                AUTH
+                    .signInWithEmailAndPassword(this.email, this.password)
+                    .then(credential => {
+                        const user = credential.user;
+                        USERS.doc(user.uid).get().then(doc => {
+                            if (doc.exists) {
+                                this.userRole = doc.data().role || 'member';  // Default to 'member'
+                            }
+                            this.$root.unblock();
+                        });
+                    })
+                    .catch(err => {
+                        this.$root.unblock();
+                        alert(err.message);
+                    });
+            },
+
+            // Enter the edit mode for admin
+            enterEditMode() {
+                alert('Entering edit mode for the game...');
+                // Add logic for entering the edit mode
+            },
+
+            // Join the game as a member
+            joinGame() {
+                alert('Joining the game as a member...');
+                // Add logic for joining the game
+            },
+        },
 
         created() {
             document.title = 'Firebase Chat : Home';
+            if (!this.$root.user) {
+                this.$router.push('/sign-in');
+            }
         },
     });
 </script>

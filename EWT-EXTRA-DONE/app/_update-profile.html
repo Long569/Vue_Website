@@ -77,31 +77,40 @@
 
                 const user = this.$root.user;
 
+                // First update the displayName
                 user.updateProfile({ displayName: this.name })
                     .then(_ => {
-                        // TODO(3): Update displayName
-                        USERS.doc(user.uid).set({
+                        return USERS.doc(user.uid).set({
                             displayName: this.name,
-                        });
+                        }, { merge: true });  // Ensure merge is true to update only the displayName
+                    })
+                    .then(() => {
+                        if (this.photo) {
+                            // If there's a new photo, upload it
+                            return STORAGE
+                                .ref('photos')
+                                .child(user.uid + '.webp')
+                                .put(this.photo)
+                                .then(snap => snap.ref.getDownloadURL())
+                                .then(url => {
+                                    // Then update the profile with the new photoURL
+                                    return user.updateProfile({ photoURL: url }).then(() => {
+                                        return USERS.doc(user.uid).set({
+                                            photoURL: url,
+                                        }, { merge: true });  // Ensure merge is true to update only the photoURL
+                                    });
+                                });
+                        }
+                    })
+                    .then(() => {
+                        // Unblock and redirect only after all operations succeed
+                        this.$root.unblock();
+                        this.$router.push('/');
+                    })
+                    .catch(err => {
+                        console.error("Error updating profile: ", err);
+                        this.$root.unblock();
                     });
-
-                if (this.photo) {
-                    STORAGE
-                        .ref('photos')
-                        .child(user.uid + '.webp')
-                        .put(this.photo)
-                        .then(snap => snap.ref.getDownloadURL())
-                        .then(url => user.updateProfile({ photoURL: url }))
-                        .then(_ => {
-                            // TODO(4): Update photoURL
-                            USERS.doc(user.uid).set({
-                                photoURL: user.photoURL,
-                            });
-                        });
-                }
-
-                this.$root.unblock();
-                this.$router.push('/');
             },
         },
 
